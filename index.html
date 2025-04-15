@@ -46,6 +46,10 @@
             background-color: #cccccc;
             cursor: not-allowed;
         }
+        .error-message {
+            color: #d32f2f;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -56,11 +60,12 @@
             <input type="number" id="weight" placeholder="Вес (кг)" min="30" max="300" required>
             <input type="number" id="height" placeholder="Рост (см)" min="100" max="250" required>
             <button type="submit" id="submitBtn">Зарегистрироваться</button>
+            <div id="errorMessage" class="error-message"></div>
         </form>
     </div>
 
-
-<script src="app.js"></script>
-    <!-- Наш скрипт -->
+    <!-- Подключаем Supabase перед нашим скриптом -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
 </body>
 </html>
