@@ -4,37 +4,21 @@
     <title>DietCoach</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Приложение для контроля питания">
     <link rel="stylesheet" href="style.css">
-    
-    <!-- Предзагрузка важных ресурсов -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://unpkg.com">
+    <!-- Подключаем Supabase ПЕРЕД нашим скриптом -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
 <body>
     <div class="container">
         <h1>🍏 Регистрация</h1>
         <form id="registrationForm">
-            <input type="text" id="name" placeholder="Ваше имя" required>
-            <input type="number" id="weight" placeholder="Вес (кг)" min="30" max="300" required>
-            <input type="number" id="height" placeholder="Рост (см)" min="100" max="250" required>
+            <input type="text" name="name" placeholder="Ваше имя" required>
+            <input type="number" name="weight" placeholder="Вес (кг)" required min="30" max="300">
+            <input type="number" name="height" placeholder="Рост (см)" required min="100" max="250">
             <button type="submit">Продолжить</button>
         </form>
-        <div id="loadingIndicator" style="display: none;">
-            <p>Сохранение данных...</p>
-        </div>
     </div>
-
-    <!-- Подключение скриптов в правильном порядке -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <script src="app.js" defer></script>
-    
-    <!-- Для Telegram WebApp -->
-    <script>
-        if (window.Telegram && Telegram.WebApp) {
-            Telegram.WebApp.expand();
-            Telegram.WebApp.enableClosingConfirmation();
-        }
-    </script>
+    <!-- Наш скрипт подключаем в конце body -->
+    <script src="app.js"></script>
 </body>
 </html>
