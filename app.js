@@ -1,101 +1,99 @@
-// Функция для безопасного создания клиента Supabase
-const initializeSupabase = async () => {
-  try {
-    // Проверяем, загружена ли библиотека Supabase
-    if (typeof supabase === 'undefined') {
-      throw new Error('Supabase library not loaded');
-    }
-
-    const supabaseUrl = 'https://wdkbjwqxvbsovhpgrmff.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indka2Jqd3F4dmJzb3ZocGdybWZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTA3NDgsImV4cCI6MjA2MDMyNjc0OH0.pUpf0hMuLW6jsZ4NappfMbwQK3M8WpZtLpUY6f9gHRI';
-    
-    return supabase.createClient(supabaseUrl, supabaseKey);
-  } catch (error) {
-    console.error('Supabase initialization failed:', error);
-    throw error;
-  }
-};
-
-// Функция для проверки структуры таблицы
-const checkTableStructure = async (supabaseClient) => {
-  try {
-    const { data, error } = await supabaseClient
-      .from('users')
-      .select('*')
-      .limit(0); // Запрос без реальных данных
-    
-    if (error) throw error;
-    
-    console.log('Table structure verified');
-    return true;
-  } catch (error) {
-    console.error('Table verification failed:', error);
-    throw new Error('Table structure check failed: ' + error.message);
-  }
-};
-
-// Основная функция приложения
-const initializeApp = async () => {
-  try {
-    // 1. Инициализация Supabase
-    const supabaseClient = await initializeSupabase();
-    
-    // 2. Проверка структуры таблицы
-    await checkTableStructure(supabaseClient);
-    
-    // 3. Получаем форму
+document.addEventListener('DOMContentLoaded', async () => {
+    // Элементы интерфейса
     const form = document.getElementById('registrationForm');
-    if (!form) {
-      throw new Error('Registration form not found');
+    const submitBtn = document.getElementById('submitBtn');
+    const errorMessage = document.getElementById('errorMessage');
+    
+    // Проверяем, что все элементы существуют
+    if (!form || !submitBtn || !errorMessage) {
+        console.error('Не найдены необходимые элементы на странице');
+        return;
     }
 
-    // 4. Обработчик отправки формы
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const submitBtn = e.target.querySelector('button[type="submit"]');
-      try {
-        // Блокируем кнопку
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Сохранение...';
+    // Инициализация Supabase
+    const initSupabase = () => {
+        try {
+            const supabaseUrl = 'https://wdkbjwqxvbsovhpgrmff.supabase.co';
+            const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indka2Jqd3F4dmJzb3ZocGdybWZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTA3NDgsImV4cCI6MjA2MDMyNjc0OH0.pUpf0hMuLW6jsZ4NappfMbwQK3M8WpZtLpUY6f9gHRI';
+            
+            if (typeof supabase === 'undefined') {
+                throw new Error('Библиотека Supabase не загружена');
+            }
+            
+            return supabase.createClient(supabaseUrl, supabaseKey);
+        } catch (error) {
+            console.error('Ошибка инициализации Supabase:', error);
+            throw error;
+        }
+    };
 
-        // Подготовка данных
-        const userData = {
-          telegram_id: window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'web_' + Math.random().toString(36).substring(2, 9),
-          name: e.target.name.value.trim(),
-          weight: parseInt(e.target.weight.value),
-          height: parseInt(e.target.height.value),
-          created_at: new Date().toISOString()
-        };
+    // Проверка подключения к Supabase
+    const testSupabaseConnection = async (client) => {
+        try {
+            const { error } = await client
+                .from('users')
+                .select('*')
+                .limit(1);
+            
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error('Ошибка подключения к Supabase:', error);
+            throw error;
+        }
+    };
 
-        console.log('Submitting data:', userData);
-
-        // Отправка данных
-        const { error } = await supabaseClient
-          .from('users')
-          .insert([userData], { returning: 'minimal' });
-
-        if (error) throw error;
+    // Основной код приложения
+    try {
+        // Инициализируем клиент
+        const supabaseClient = initSupabase();
         
-        // Успешное завершение
-        alert('✅ Данные успешно сохранены!');
-        form.reset();
-      } catch (error) {
-        console.error('Submission error:', error);
-        alert(`❌ Ошибка: ${error.message}`);
-      } finally {
-        // Разблокируем кнопку в любом случае
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Зарегистрироваться';
-      }
-    });
+        // Проверяем подключение
+        await testSupabaseConnection(supabaseClient);
+        console.log('Supabase подключен успешно');
 
-    console.log('Application initialized successfully');
-  } catch (error) {
-    console.error('Application initialization failed:', error);
-    alert('⚠️ Ошибка при загрузке приложения: ' + error.message);
-  }
-};
+        // Обработчик отправки формы
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMessage.textContent = '';
+            
+            // Блокируем кнопку
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Сохранение...';
 
-// Запускаем приложение после загрузки DOM
-document.addEventListener('DOMContentLoaded', initializeApp);
+            try {
+                // Подготовка данных
+                const userData = {
+                    telegram_id: window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'web_' + Math.random().toString(36).substring(2, 9),
+                    name: form.name.value.trim(),
+                    weight: parseInt(form.weight.value),
+                    height: parseInt(form.height.value),
+                    created_at: new Date().toISOString()
+                };
+
+                console.log('Отправка данных:', userData);
+
+                // Отправка данных
+                const { error } = await supabaseClient
+                    .from('users')
+                    .insert([userData]);
+
+                if (error) throw error;
+                
+                // Успешное завершение
+                alert('✅ Данные успешно сохранены!');
+                form.reset();
+            } catch (error) {
+                console.error('Ошибка сохранения:', error);
+                errorMessage.textContent = `Ошибка: ${error.message}`;
+            } finally {
+                // Разблокируем кнопку
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Зарегистрироваться';
+            }
+        });
+    } catch (error) {
+        console.error('Ошибка инициализации приложения:', error);
+        errorMessage.textContent = 'Произошла ошибка при загрузке приложения. Пожалуйста, обновите страницу.';
+    }
+});
