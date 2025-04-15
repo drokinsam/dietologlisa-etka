@@ -13,6 +13,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         if (testError) throw testError;
 
+        // Добавьте перед обработчиком формы
+const { data: columns, error: colsError } = await supabase
+    .rpc('get_columns', { table_name: 'users' });
+console.log('Структура таблицы:', columns, colsError);
+
         // 3. Обработка формы
         const form = document.getElementById('registrationForm');
         form.addEventListener('submit', async (e) => {
