@@ -1,33 +1,37 @@
 class DietCoachApp {
     constructor() {
         this.initElements();
-        this.initSupabase();
         this.setupEventListeners();
         this.currentUser = null;
+        this.initApp();
+    }
+
+    async initApp() {
+        try {
+            await this.initSupabase();
+            await this.getCurrentUser();
+            await this.loadUserData();
+            await this.loadMeals();
+            await this.loadChatMessages();
+            this.initWeightChart();
+        } catch (error) {
+            console.error('App initialization error:', error);
+            this.showError('Ошибка загрузки приложения');
+        }
     }
 
     initElements() {
-        // Навигация
         this.tabs = document.querySelectorAll('.nav-tab');
         this.tabContents = document.querySelectorAll('.tab-content');
-        
-        // Профиль
         this.profileForm = document.getElementById('profileForm');
         this.nameInput = document.getElementById('name');
         this.weightInput = document.getElementById('weight');
         this.heightInput = document.getElementById('height');
         this.profileError = document.getElementById('profileError');
-        
-        // Дневник питания
         this.mealForm = document.getElementById('mealForm');
         this.mealsList = document.getElementById('mealsList');
-        
-        // Чат
         this.chatMessages = document.getElementById('chatMessages');
         this.messageInput = document.getElementById('messageInput');
-        
-        // Статистика
-        this.weightChart = null;
     }
 
     async initSupabase() {
@@ -40,130 +44,64 @@ class DietCoachApp {
             }
             
             this.supabase = supabase.createClient(this.supabaseUrl, this.supabaseKey);
-            
-            // Получаем текущего пользователя (из Telegram или создаём нового)
-            await this.getCurrentUser();
-            
-            // Загружаем данные пользователя
-            await this.loadUserData();
-            
-            // Загружаем дневник питания
-            await this.loadMeals();
-            
-            // Загружаем сообщения чата
-            await this.loadChatMessages();
-            
-            // Инициализируем график
-            this.initWeightChart();
-            
+            console.log('Supabase initialized');
         } catch (error) {
-            console.error('Initialization error:', error);
-            this.showError('Ошибка инициализации приложения');
+            console.error('Supabase init error:', error);
+            throw error;
         }
-    }
-
-    setupEventListeners() {
-        // Навигация по табам
-        this.tabs.forEach(tab => {
-            tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
-        });
-        
-        // Профиль
-        this.profileForm.addEventListener('submit', (e) => this.saveProfile(e));
-        
-        // Дневник питания
-        this.mealForm.addEventListener('submit', (e) => this.addMeal(e));
-        
-        // Чат
-        document.getElementById('sendMessage').addEventListener('click', () => this.sendMessage());
-        this.messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.sendMessage();
-        });
     }
 
     async getCurrentUser() {
         try {
-            // Если в Telegram WebApp - используем данные из Telegram
             const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
             
-            if (tgUser) {
-                this.currentUser = {
-                    id: tgUser.id.toString(),
-                    name: tgUser.first_name || 'Пользователь',
-                    isTelegram: true
-                };
-            } else {
-                // Для веб-версии создаём временного пользователя
-                this.currentUser = {
-                    id: 'web_' + Math.random().toString(36).substring(2, 9),
-                    name: 'Гость',
-                    isTelegram: false
-                };
-            }
+            this.currentUser = {
+                id: tgUser?.id?.toString() || 'web_' + Math.random().toString(36).substring(2, 9),
+                name: tgUser?.first_name || 'Гость',
+                isTelegram: !!tgUser
+            };
             
-            console.log('Текущий пользователь:', this.currentUser);
-            
+            console.log('Current user:', this.currentUser);
+            return this.currentUser;
         } catch (error) {
-            console.error('Ошибка получения пользователя:', error);
+            console.error('Get user error:', error);
             throw error;
         }
     }
 
     async loadUserData() {
+        if (!this.currentUser?.id) {
+            console.warn('No user ID, skipping profile load');
+            return;
+        }
+
         try {
             const { data, error } = await this.supabase
                 .from('users')
                 .select('*')
                 .eq('telegram_id', this.currentUser.id)
-                .single();
+                .maybeSingle();
             
-            if (!error && data) {
+            if (error) throw error;
+            
+            if (data) {
                 this.currentUser = { ...this.currentUser, ...data };
                 this.nameInput.value = data.name || '';
                 this.weightInput.value = data.weight || '';
                 this.heightInput.value = data.height || '';
             }
         } catch (error) {
-            console.error('Ошибка загрузки данных:', error);
-        }
-    }
-
-    async saveProfile(e) {
-        e.preventDefault();
-        this.profileError.textContent = '';
-        
-        try {
-            const userData = {
-                telegram_id: this.currentUser.id,
-                name: this.nameInput.value.trim(),
-                weight: parseInt(this.weightInput.value),
-                height: parseInt(this.heightInput.value),
-                updated_at: new Date().toISOString()
-            };
-            
-            // Сохраняем в Supabase (upsert - обновляем или создаём)
-            const { error } = await this.supabase
-                .from('users')
-                .upsert([userData], { onConflict: 'telegram_id' });
-            
-            if (error) throw error;
-            
-            // Обновляем текущего пользователя
-            this.currentUser = { ...this.currentUser, ...userData };
-            
-            // Показываем уведомление
-            this.showNotification('Данные успешно сохранены!');
-            
-            // Обновляем график
-            this.initWeightChart();
-            
-        } catch (error) {
-            console.error('Ошибка сохранения:', error);
-            this.profileError.textContent = `Ошибка: ${error.message}`;
+            console.error('Load user data error:', error);
+            throw error;
         }
     }
 
     async loadMeals() {
+        if (!this.currentUser?.id) {
+            console.warn('No user ID, skipping meals load');
+            return;
+        }
+
         try {
             const { data, error } = await this.supabase
                 .from('meals')
@@ -174,9 +112,64 @@ class DietCoachApp {
             if (error) throw error;
             
             this.renderMeals(data || []);
+        } catch (error) {
+            console.error('Load meals error:', error);
+            throw error;
+        }
+    }
+
+    async loadChatMessages() {
+        if (!this.currentUser?.id) {
+            console.warn('No user ID, skipping chat load');
+            return;
+        }
+
+        try {
+            const { data, error } = await this.supabase
+                .from('messages')
+                .select('*')
+                .or(`sender_id.eq.${this.currentUser.id},receiver_id.eq.${this.currentUser.id}`)
+                .order('created_at', { ascending: true });
+            
+            if (error) throw error;
+            
+            this.renderChatMessages(data || []);
+        } catch (error) {
+            console.error('Load chat error:', error);
+            throw error;
+        }
+    }
+
+    async saveProfile(e) {
+        e.preventDefault();
+        this.profileError.textContent = '';
+        
+        try {
+            if (!this.currentUser?.id) {
+                throw new Error('User not initialized');
+            }
+
+            const userData = {
+                telegram_id: this.currentUser.id,
+                name: this.nameInput.value.trim(),
+                weight: parseInt(this.weightInput.value) || null,
+                height: parseInt(this.heightInput.value) || null,
+                updated_at: new Date().toISOString()
+            };
+            
+            const { error } = await this.supabase
+                .from('users')
+                .upsert([userData], { onConflict: 'telegram_id' });
+            
+            if (error) throw error;
+            
+            this.currentUser = { ...this.currentUser, ...userData };
+            this.showNotification('Данные сохранены!');
+            this.initWeightChart();
             
         } catch (error) {
-            console.error('Ошибка загрузки дневника:', error);
+            console.error('Save profile error:', error);
+            this.profileError.textContent = `Ошибка: ${error.message}`;
         }
     }
 
@@ -184,6 +177,10 @@ class DietCoachApp {
         e.preventDefault();
         
         try {
+            if (!this.currentUser?.id) {
+                throw new Error('User not initialized');
+            }
+
             const mealData = {
                 user_id: this.currentUser.id,
                 meal_type: document.getElementById('mealType').value,
@@ -197,65 +194,55 @@ class DietCoachApp {
             
             if (error) throw error;
             
-            // Очищаем форму
             this.mealForm.reset();
-            
-            // Обновляем список
             await this.loadMeals();
-            
             this.showNotification('Приём пищи добавлен!');
             
         } catch (error) {
-            console.error('Ошибка добавления:', error);
+            console.error('Add meal error:', error);
             this.showNotification('Ошибка при добавлении', 'error');
         }
     }
 
-    renderMeals(meals) {
-        this.mealsList.innerHTML = '';
+    async sendMessage() {
+        const text = this.messageInput.value.trim();
+        if (!text || !this.currentUser?.id) return;
         
-        if (meals.length === 0) {
-            this.mealsList.innerHTML = '<p>У вас пока нет записей</p>';
-            return;
+        try {
+            const messageData = {
+                sender_id: this.currentUser.id,
+                receiver_id: 'dietitian',
+                text: text,
+                created_at: new Date().toISOString()
+            };
+            
+            const { error } = await this.supabase
+                .from('messages')
+                .insert([messageData]);
+            
+            if (error) throw error;
+            
+            this.messageInput.value = '';
+            await this.loadChatMessages();
+            
+        } catch (error) {
+            console.error('Send message error:', error);
+            this.showNotification('Ошибка отправки сообщения', 'error');
         }
+    }
+
+    renderMeals(meals) {
+        this.mealsList.innerHTML = meals.length ? '' : '<p>У вас пока нет записей</p>';
         
         meals.forEach(meal => {
             const mealCard = document.createElement('div');
             mealCard.className = 'meal-card';
-            
-            const mealType = {
-                breakfast: 'Завтрак',
-                lunch: 'Обед',
-                dinner: 'Ужин',
-                snack: 'Перекус'
-            }[meal.meal_type] || meal.meal_type;
-            
-            const date = new Date(meal.created_at).toLocaleString();
-            
             mealCard.innerHTML = `
-                <h3>${mealType} <small>${date}</small></h3>
+                <h3>${this.getMealTypeName(meal.meal_type)} <small>${new Date(meal.created_at).toLocaleString()}</small></h3>
                 <p>${meal.description}</p>
             `;
-            
             this.mealsList.appendChild(mealCard);
         });
-    }
-
-    async loadChatMessages() {
-        try {
-            const { data, error } = await this.supabase
-                .from('messages')
-                .select('*')
-                .or(`sender_id.eq.${this.currentUser.id},receiver_id.eq.${this.currentUser.id}`)
-                .order('created_at', { ascending: true });
-            
-            if (error) throw error;
-            
-            this.renderChatMessages(data || []);
-            
-        } catch (error) {
-            console.error('Ошибка загрузки чата:', error);
-        }
     }
 
     renderChatMessages(messages) {
@@ -281,56 +268,23 @@ class DietCoachApp {
             this.chatMessages.appendChild(messageDiv);
         });
         
-        // Прокручиваем вниз
         this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }
 
-    async sendMessage() {
-        const text = this.messageInput.value.trim();
-        if (!text) return;
-        
-        try {
-            const messageData = {
-                sender_id: this.currentUser.id,
-                receiver_id: 'dietitian', // ID диетолога
-                text: text,
-                created_at: new Date().toISOString()
-            };
-            
-            const { error } = await this.supabase
-                .from('messages')
-                .insert([messageData]);
-            
-            if (error) throw error;
-            
-            // Очищаем поле ввода
-            this.messageInput.value = '';
-            
-            // Обновляем чат
-            await this.loadChatMessages();
-            
-        } catch (error) {
-            console.error('Ошибка отправки:', error);
-            this.showNotification('Ошибка отправки сообщения', 'error');
-        }
-    }
-
     initWeightChart() {
-        // В реальном приложении нужно загружать историю веса из Supabase
-        const ctx = document.getElementById('weightChart').getContext('2d');
+        const ctx = document.getElementById('weightChart')?.getContext('2d');
+        if (!ctx) return;
         
         if (this.weightChart) {
             this.weightChart.destroy();
         }
         
-        // Пример данных (в реальном приложении загружайте из базы)
-        const weightData = [
-            { date: '2023-01-01', weight: 85 },
-            { date: '2023-02-01', weight: 83 },
-            { date: '2023-03-01', weight: 81 },
-            { date: '2023-04-01', weight: 80 },
-            { date: '2023-05-01', weight: 78 }
-        ];
+        // Пример данных (замените реальными данными из Supabase)
+        const weightData = this.currentUser?.weight ? [
+            { date: new Date(Date.now() - 12096e5).toISOString().split('T')[0], weight: this.currentUser.weight + 3 },
+            { date: new Date(Date.now() - 6048e5).toISOString().split('T')[0], weight: this.currentUser.weight + 1 },
+            { date: new Date().toISOString().split('T')[0], weight: this.currentUser.weight }
+        ] : [];
         
         this.weightChart = new Chart(ctx, {
             type: 'line',
@@ -356,17 +310,20 @@ class DietCoachApp {
         });
     }
 
+    getMealTypeName(type) {
+        const types = {
+            breakfast: 'Завтрак',
+            lunch: 'Обед',
+            dinner: 'Ужин',
+            snack: 'Перекус'
+        };
+        return types[type] || type;
+    }
+
     switchTab(tabId) {
-        // Переключаем активные табы
-        this.tabs.forEach(tab => {
-            tab.classList.toggle('active', tab.dataset.tab === tabId);
-        });
+        this.tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === tabId));
+        this.tabContents.forEach(content => content.classList.toggle('active', content.id === tabId));
         
-        this.tabContents.forEach(content => {
-            content.classList.toggle('active', content.id === tabId);
-        });
-        
-        // При переключении на статистику обновляем график
         if (tabId === 'stats') {
             this.initWeightChart();
         }
@@ -386,10 +343,7 @@ class DietCoachApp {
         notification.textContent = message;
         
         document.body.appendChild(notification);
-        
-        setTimeout(() => {
-            notification.remove();
-        }, 3000);
+        setTimeout(() => notification.remove(), 3000);
     }
 
     showError(message) {
@@ -406,10 +360,27 @@ class DietCoachApp {
         errorDiv.textContent = message;
         
         document.body.appendChild(errorDiv);
+        setTimeout(() => errorDiv.remove(), 5000);
+    }
+
+    setupEventListeners() {
+        this.tabs.forEach(tab => {
+            tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
+        });
+        
+        this.profileForm?.addEventListener('submit', (e) => this.saveProfile(e));
+        this.mealForm?.addEventListener('submit', (e) => this.addMeal(e));
+        
+        const sendBtn = document.getElementById('sendMessage');
+        if (sendBtn) {
+            sendBtn.addEventListener('click', () => this.sendMessage());
+            this.messageInput?.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.sendMessage();
+            });
+        }
     }
 }
 
-// Инициализация приложения после загрузки DOM
 document.addEventListener('DOMContentLoaded', () => {
     new DietCoachApp();
 });
