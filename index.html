@@ -3,28 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DietCoach - Регистрация</title>
+    <title>DietCoach</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root {
+            --primary: #2e7d32;
+            --primary-dark: #1b5e20;
+            --error: #d32f2f;
+            --background: #f5f7fa;
+        }
+        
         body {
             font-family: 'Arial', sans-serif;
-            line-height: 1.6;
             margin: 0;
-            padding: 20px;
-            background-color: #f5f7fa;
+            padding: 0;
+            background-color: var(--background);
         }
+        
         .container {
-            max-width: 500px;
+            max-width: 800px;
             margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 10px 10px 0 0;
+            overflow: hidden;
+        }
+        
+        .nav-tab {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .nav-tab.active {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
             background: white;
             padding: 25px;
-            border-radius: 10px;
+            border-radius: 0 0 10px 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        h1 {
-            color: #2e7d32;
-            text-align: center;
+        
+        .tab-content.active {
+            display: block;
         }
-        input, button {
+        
+        input, button, select {
             width: 100%;
             padding: 12px;
             margin: 8px 0;
@@ -32,39 +67,101 @@
             border-radius: 5px;
             box-sizing: border-box;
         }
+        
         button {
-            background-color: #2e7d32;
+            background-color: var(--primary);
             color: white;
             font-weight: bold;
             cursor: pointer;
             transition: background 0.3s;
         }
+        
         button:hover {
-            background-color: #1b5e20;
+            background-color: var(--primary-dark);
         }
+        
         button:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
         }
+        
         .error-message {
-            color: #d32f2f;
+            color: var(--error);
             margin-top: 10px;
+        }
+        
+        .meal-card {
+            background: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        
+        #weightChart {
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🍏 Регистрация в DietCoach</h1>
-        <form id="registrationForm">
-            <input type="text" id="name" placeholder="Ваше имя" required>
-            <input type="number" id="weight" placeholder="Вес (кг)" min="30" max="300" required>
-            <input type="number" id="height" placeholder="Рост (см)" min="100" max="250" required>
-            <button type="submit" id="submitBtn">Зарегистрироваться</button>
-            <div id="errorMessage" class="error-message"></div>
-        </form>
+        <h1><i class="fas fa-apple-alt"></i> DietCoach</h1>
+        
+        <div class="nav-tabs">
+            <div class="nav-tab active" data-tab="profile"><i class="fas fa-user"></i> Профиль</div>
+            <div class="nav-tab" data-tab="diary"><i class="fas fa-book"></i> Дневник</div>
+            <div class="nav-tab" data-tab="chat"><i class="fas fa-comments"></i> Чат</div>
+            <div class="nav-tab" data-tab="stats"><i class="fas fa-chart-line"></i> Статистика</div>
+        </div>
+        
+        <!-- Профиль -->
+        <div id="profile" class="tab-content active">
+            <h2><i class="fas fa-user-circle"></i> Ваш профиль</h2>
+            <form id="profileForm">
+                <input type="text" id="name" placeholder="Ваше имя" required>
+                <input type="number" id="weight" placeholder="Вес (кг)" min="30" max="300" required>
+                <input type="number" id="height" placeholder="Рост (см)" min="100" max="250" required>
+                <button type="submit" id="saveProfile">Сохранить</button>
+                <div id="profileError" class="error-message"></div>
+            </form>
+        </div>
+        
+        <!-- Дневник питания -->
+        <div id="diary" class="tab-content">
+            <h2><i class="fas fa-utensils"></i> Дневник питания</h2>
+            <form id="mealForm">
+                <select id="mealType" required>
+                    <option value="">Выберите приём пищи</option>
+                    <option value="breakfast">Завтрак</option>
+                    <option value="lunch">Обед</option>
+                    <option value="dinner">Ужин</option>
+                    <option value="snack">Перекус</option>
+                </select>
+                <input type="text" id="mealDescription" placeholder="Что вы съели?" required>
+                <button type="submit">Добавить</button>
+            </form>
+            
+            <div id="mealsList"></div>
+        </div>
+        
+        <!-- Чат с диетологом -->
+        <div id="chat" class="tab-content">
+            <h2><i class="fas fa-comment-medical"></i> Чат с диетологом</h2>
+            <div id="chatMessages" style="height: 300px; overflow-y: auto; margin-bottom: 15px; border: 1px solid #ddd; padding: 10px;"></div>
+            <div style="display: flex;">
+                <input type="text" id="messageInput" placeholder="Ваше сообщение..." style="flex: 1;">
+                <button id="sendMessage" style="width: auto; margin-left: 10px;">Отправить</button>
+            </div>
+        </div>
+        
+        <!-- Статистика -->
+        <div id="stats" class="tab-content">
+            <h2><i class="fas fa-chart-pie"></i> Ваша статистика</h2>
+            <canvas id="weightChart"></canvas>
+        </div>
     </div>
 
-    <!-- Подключаем Supabase перед нашим скриптом -->
+    <!-- Подключаем библиотеки -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="app.js"></script>
 </body>
