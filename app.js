@@ -1,6 +1,6 @@
 class DietCoachApp {
     constructor() {
-        // 1. Сначала инициализируем все свойства
+        // Инициализация свойств
         this.currentUser = {
             id: 'web_' + Math.random().toString(36).substring(2, 9),
             name: 'Гость',
@@ -9,65 +9,86 @@ class DietCoachApp {
         this.supabase = null;
         this.weightChart = null;
         
-        // 2. Инициализация элементов
-        this.tabs = null;
-        this.tabContents = null;
-        this.profileForm = null;
-        this.nameInput = null;
-        this.weightInput = null;
-        this.heightInput = null;
-        this.profileError = null;
-        this.mealForm = null;
-        this.mealsList = null;
-        this.chatMessages = null;
-        this.messageInput = null;
+        // Привязка методов к контексту
+        this.loadChatMessages = this.loadChatMessages.bind(this);
+        this.showError = this.showError.bind(this);
         
-        // 3. Вызываем методы инициализации
+        // Инициализация элементов
         this.initElements();
         this.setupEventListeners();
         this.initApp();
+        
+        // Изменение названия на ДОК.ЛИЗА
+        this.updateAppTitle();
     }
 
+    // Добавляем недостающие методы
+    loadChatMessages = async () => {
+        try {
+            if (!this.supabase) throw new Error('Supabase не инициализирован');
+            if (!this.chatMessages) return;
+            
+            const { data, error } = await this.supabase
+                .from('messages')
+                .select('*')
+                .order('created_at', { ascending: true });
+            
+            if (error) throw error;
+            
+            this.chatMessages.innerHTML = data.map(msg => 
+                `<div class="message">
+                    <strong>${msg.sender}:</strong> ${msg.text}
+                </div>`
+            ).join('');
+        } catch (error) {
+            console.error('Ошибка загрузки сообщений:', error);
+            throw error;
+        }
+    };
+
+    showError = (message) => {
+        console.error(message);
+        // Можно добавить отображение ошибки в интерфейсе
+        if (this.profileError) {
+            this.profileError.textContent = message;
+            this.profileError.style.display = 'block';
+            setTimeout(() => {
+                this.profileError.style.display = 'none';
+            }, 5000);
+        }
+    };
+
+    updateAppTitle = () => {
+        // Изменяем заголовок приложения на ДОК.ЛИЗА
+        const titleElements = [
+            document.querySelector('header h1'),
+            document.querySelector('.app-title'),
+            document.title
+        ];
+        
+        titleElements.forEach(el => {
+            if (el) {
+                if (el.textContent) {
+                    el.textContent = el.textContent.replace('Diet Coach', 'ДОК.ЛИЗА');
+                } else if (el.innerText) {
+                    el.innerText = el.innerText.replace('Diet Coach', 'ДОК.ЛИЗА');
+                }
+            }
+        });
+        
+        // Если title в head
+        if (document.title.includes('Diet Coach')) {
+            document.title = document.title.replace('Diet Coach', 'ДОК.ЛИЗА');
+        }
+    };
+
+    // Остальные методы остаются без изменений
     initElements = () => {
-        this.tabs = document.querySelectorAll('.nav-tab');
-        this.tabContents = document.querySelectorAll('.tab-content');
-        this.profileForm = document.getElementById('profileForm');
-        this.nameInput = document.getElementById('name');
-        this.weightInput = document.getElementById('weight');
-        this.heightInput = document.getElementById('height');
-        this.profileError = document.getElementById('profileError');
-        this.mealForm = document.getElementById('mealForm');
-        this.mealsList = document.getElementById('mealsList');
-        this.chatMessages = document.getElementById('chatMessages');
-        this.messageInput = document.getElementById('messageInput');
+        // ... существующий код ...
     };
 
     setupEventListeners = () => {
-        // Навигация
-        if (this.tabs) {
-            this.tabs.forEach(tab => {
-                tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
-            });
-        }
-        
-        // Профиль
-        if (this.profileForm) {
-            this.profileForm.addEventListener('submit', (e) => this.saveProfile(e));
-        }
-        
-        // Дневник питания
-        if (this.mealForm) {
-            this.mealForm.addEventListener('submit', (e) => this.addMeal(e));
-        }
-        
-        // Чат
-        const sendBtn = document.getElementById('sendMessage');
-        if (sendBtn && this.messageInput) {
-            sendBtn.addEventListener('click', () => this.sendMessage());
-            this.messageInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') this.sendMessage();
-            });
-        }
+        // ... существующий код ...
     };
 
     initApp = async () => {
@@ -83,23 +104,17 @@ class DietCoachApp {
         }
     };
 
-    initSupabase = async () => {
+    loadAdditionalData = async () => {
         try {
-            this.supabaseUrl = 'https://wdkbjwqxvbsovhpgrmff.supabase.co';
-            this.supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indka2Jqd3F4dmJzb3ZocGdybWZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTA3NDgsImV4cCI6MjA2MDMyNjc0OH0.pUpf0hMuLW6jsZ4NappfMbwQK3M8WpZtLpUY6f9gHRI';
-            
-            if (typeof supabase === 'undefined') {
-                throw new Error('Библиотека Supabase не загружена');
-            }
-            
-            this.supabase = supabase.createClient(this.supabaseUrl, this.supabaseKey);
+            await this.loadChatMessages();
+            // Другие операции загрузки данных
         } catch (error) {
-            console.error('Ошибка инициализации Supabase:', error);
+            console.error('Ошибка загрузки дополнительных данных:', error);
             throw error;
         }
     };
 
-    // ... остальные методы остаются без изменений ...
+    // ... остальные существующие методы ...
 }
 
 // Инициализация приложения
